@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CollabLedger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1b2433;--mute:#6b7585;--line:#e3e6ec;--accent:#0f766e;--accent-soft:#d9f0ed;--warn:#b45309;--warn-soft:#fdecd2;--bad:#b42318;--bad-soft:#fde3e0}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--card:#1b212b;--ink:#eef1f6;--mute:#93a0b4;--line:#2b3340;--accent:#4fd1c0;--accent-soft:#18413d;--warn:#f5b34d;--warn-soft:#3d2d12;--bad:#ff8a7d;--bad-soft:#41201c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Figtree,system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px 24px}
+h1{font-size:22px;margin:0;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+button,select,input{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+@media (prefers-color-scheme:dark){.btn.primary{color:#062a26}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:0 24px 16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-size:22px;letter-spacing:-.02em}
+.stat small{color:var(--mute)}
+.board{display:flex;gap:12px;padding:0 24px 32px;overflow-x:auto;align-items:flex-start}
+.col{flex:0 0 260px;background:#0000;}
+.col h2{font-size:13px;font-weight:600;margin:0 0 8px;color:var(--mute);display:flex;justify-content:space-between}
+.deal{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.deal h3{margin:0;font-size:15px}
+.deal p{margin:2px 0 8px;color:var(--mute);font-size:13px}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;margin:6px 4px 0 0}
+.tag.bad{background:var(--bad-soft);color:var(--bad)}.tag.warn{background:var(--warn-soft);color:var(--warn)}.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.todo{display:flex;gap:6px;align-items:center;font-size:13px;margin-top:4px}
+.todo.done span{text-decoration:line-through;color:var(--mute)}
+.deal select{width:100%;margin-top:10px;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+.link{background:none;border:0;color:var(--mute);cursor:pointer;font-size:12px;padding:6px 0 0}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:14px;color:var(--mute);font-size:13px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:22px;width:min(420px,92vw)}
+dialog::backdrop{background:#0008}
+label{display:block;font-size:13px;font-weight:500;margin-top:12px}
+input,dialog select{width:100%;padding:9px 10px;margin-top:4px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+@media (max-width:600px){header,.stats,.board{padding-left:14px;padding-right:14px}.col{flex-basis:84vw}}
+.auth{max-width:380px;margin:12vh auto;padding:0 20px}
+.auth h1{font-size:28px;margin-bottom:6px}.auth p{color:var(--mute);margin:0 0 8px}
+.auth .btn{width:100%;margin-top:16px;padding:11px}
+.msg{font-size:13px;margin-top:12px;color:var(--bad);min-height:18px}.msg.ok{color:var(--accent)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<section class="auth" id="auth" hidden>
+  <h1>Collab<span>Ledger</span></h1>
+  <p>Track creator deals, deliverables, rights and payments in one place.</p>
+  <form id="af">
+    <label>Email<input type="email" name="email" required autocomplete="email"></label>
+    <label>Password (6+ characters)<input type="password" name="password" required minlength="6" autocomplete="current-password"></label>
+    <button class="btn primary" id="go">Log in</button>
+    <div class="msg" id="msg" role="alert"></div>
+    <button type="button" class="link" id="swap" style="font-size:14px">New here? Create an account</button>
+  </form>
+</section>
+<div id="app" hidden>
+<header>
+  <h1>Collab<span>Ledger</span></h1>
+  <div><button class="btn" id="exp">Export CSV</button> <button class="btn primary" id="add">New deal</button> <button class="btn" id="out">Log out</button></div>
+</header>
+<section class="stats" id="stats"></section>
+<main class="board" id="board"></main>
+
+</div>
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <strong style="font-size:17px">New deal</strong>
+    <label>Creator name<input name="creator" required placeholder="Maya Ortiz"></label>
+    <label>Campaign<input name="campaign" required placeholder="Spring serum launch"></label>
+    <label>Fee ($)<input name="fee" type="number" min="0" value="500"></label>
+    <label>Content due<input name="due" type="date"></label>
+    <label>Usage rights end<input name="rights" type="date"></label>
+    <div class="actions"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save deal</button></div>
+  </form>
+</dialog>
+
+<script>
+const SB_URL="https://nvjfknvlaaljhnsymqhd.supabase.co";
+const SB_KEY="sb_publishable_O085-94Pkx1rZwRh7DsrNA_LNdzCTeZ";
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const STAGES=["Pitched","Negotiating","Contracted","Content due","Live","Paid"];
+const TASKS=["Contract signed","Draft submitted","Draft approved","Post link added"];
+let deals=[],signup=false;
+const $=id=>document.getElementById(id);
+const day=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const daysTo=s=>s?Math.ceil((new Date(s)-new Date(day(0)))/864e5):null;
+const money=n=>"$"+Number(n).toLocaleString();
+const fail=e=>{if(e){alert("Could not save: "+e.message);return true}};
+
+async function load(){
+  const{data,error}=await sb.from("deals").select("*").order("created_at");
+  if(error){fail(error);return}
+  deals=data||[];render();
+}
+function show(session){
+  $("auth").hidden=!!session;$("app").hidden=!session;
+  if(session)load();else{deals=[]}
+}
+sb.auth.getSession().then(({data})=>show(data.session));
+sb.auth.onAuthStateChange((_e,s)=>show(s));
+
+$("swap").onclick=()=>{
+  signup=!signup;
+  $("go").textContent=signup?"Create account":"Log in";
+  $("swap").textContent=signup?"Have an account? Log in":"New here? Create an account";
+  $("msg").textContent="";
+};
+$("af").onsubmit=async e=>{
+  e.preventDefault();
+  const f=new FormData(e.target),creds={email:f.get("email"),password:f.get("password")};
+  $("msg").className="msg";$("msg").textContent="Working...";
+  const{data,error}=signup?await sb.auth.signUp(creds):await sb.auth.signInWithPassword(creds);
+  if(error){$("msg").textContent=error.message;return}
+  if(signup&&!data.session){$("msg").className="msg ok";$("msg").textContent="Check your email to confirm, then log in."}
+};
+$("out").onclick=()=>sb.auth.signOut();
+
+function render(){
+  const open=deals.filter(d=>d.stage<5);
+  const overdue=deals.filter(d=>d.stage==3&&daysTo(d.due)<0).length;
+  const expiring=deals.filter(d=>d.rights&&daysTo(d.rights)>=0&&daysTo(d.rights)<=14).length;
+  const owed=deals.filter(d=>d.stage==4).reduce((a,d)=>a+Number(d.fee),0);
+  $("stats").innerHTML=[[open.length,"Active deals"],[overdue,"Overdue content"],[expiring,"Rights expiring in 14 days"],[money(owed),"Live, awaiting payment"]]
+   .map(([v,l])=>`<div class="stat"><b>${v}</b><small>${l}</small></div>`).join("");
+  $("board").innerHTML=STAGES.map((s,i)=>{
+    const list=deals.filter(d=>d.stage===i);
+    return `<div class="col"><h2>${s}<span>${list.length}</span></h2>`+
+    (list.map(card).join("")||`<div class="empty">No deals here yet.</div>`)+`</div>`}).join("");
+}
+function card(d){
+  const dd=daysTo(d.due),rd=daysTo(d.rights),done=d.done||[];
+  let tags="";
+  if(d.stage==3&&dd<0)tags+=`<span class="tag bad">${-dd}d overdue</span>`;
+  else if(d.stage==3&&dd!=null&&dd<=3)tags+=`<span class="tag warn">Due in ${dd}d</span>`;
+  if(d.stage==4)tags+=`<span class="tag warn">Invoice due</span>`;
+  if(d.stage==5)tags+=`<span class="tag ok">Paid</span>`;
+  if(rd!=null&&rd<0)tags+=`<span class="tag bad">Rights expired</span>`;
+  else if(rd!=null&&rd<=14)tags+=`<span class="tag warn">Rights end in ${rd}d</span>`;
+  const todos=TASKS.map((t,i)=>`<label class="todo ${done.includes(i)?"done":""}"><input type="checkbox" style="width:auto;margin:0" data-t="${d.id}:${i}" ${done.includes(i)?"checked":""}><span>${t}</span></label>`).join("");
+  return `<div class="deal"><h3>${esc(d.creator)}</h3><p>${esc(d.campaign)}</p>
+  <div class="row"><b>${money(d.fee)}</b><span>${d.due?"Due "+d.due:"No due date"}</span></div>${tags}
+  <div style="margin-top:8px">${todos}</div>
+  <select aria-label="Move deal" data-m="${d.id}">${STAGES.map((s,i)=>`<option value="${i}" ${i==d.stage?"selected":""}>${s}</option>`).join("")}</select>
+  <button class="link" data-x="${d.id}">Delete deal</button></div>`;
+}
+document.addEventListener("change",async e=>{
+  const m=e.target.dataset.m,t=e.target.dataset.t;
+  if(m){const d=deals.find(d=>d.id==m);d.stage=+e.target.value;render();fail((await sb.from("deals").update({stage:d.stage}).eq("id",m)).error)}
+  if(t){const[id,i]=t.split(":"),n=+i,d=deals.find(x=>x.id==id),cur=d.done||[];
+    d.done=cur.includes(n)?cur.filter(x=>x!==n):[...cur,n];render();
+    fail((await sb.from("deals").update({done:d.done}).eq("id",id)).error)}
+});
+document.addEventListener("click",async e=>{
+  const x=e.target.dataset.x;
+  if(x&&confirm("Delete this deal?")){
+    if(fail((await sb.from("deals").delete().eq("id",x)).error))return;
+    deals=deals.filter(d=>d.id!=x);render()}
+});
+const dlg=$("dlg"),form=$("form");
+$("add").onclick=()=>{form.reset();dlg.showModal()};
+dlg.addEventListener("close",async()=>{
+  if(dlg.returnValue!=="ok")return;
+  const f=new FormData(form);
+  const row={creator:f.get("creator"),campaign:f.get("campaign"),fee:f.get("fee")||0,due:f.get("due")||null,rights:f.get("rights")||null};
+  const{data,error}=await sb.from("deals").insert(row).select().single();
+  if(fail(error))return;
+  deals.push(data);render();
+});
+$("exp").onclick=()=>{
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const rows=[["Creator","Campaign","Fee","Due","Rights end","Stage"],...deals.map(d=>[d.creator,d.campaign,d.fee,d.due,d.rights,STAGES[d.stage]])];
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));
+  a.download="collabledger-deals.csv";a.click();
+};
+</script>
+</body>
+</html>
